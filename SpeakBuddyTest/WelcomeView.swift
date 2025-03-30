@@ -14,85 +14,109 @@ struct WelcomeView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let device = UIDevice.current.userInterfaceIdiom
             let isLandscape = geometry.size.width > geometry.size.height
+            let isPhone = UIDevice.current.userInterfaceIdiom == .phone
+            let needsScroll = isPhone && isLandscape
 
             ZStack {
                 BackgroundView()
                     .ignoresSafeArea()
 
-                VStack(spacing: spacing(for: geometry)) {
-                    topBar
-
-//                    Spacer(minLength: isLandscape ? 8 : 16)
-
-                    titleSection
-
-                    chartWithRobot(geometry: geometry)
-
-                    bottomTexts
-
-//                    Spacer(minLength: isLandscape ? 8 : 16)
-                }
-                .padding(.horizontal)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .safeAreaInset(edge: .bottom) {
-                    registerButton
-                        .padding(.horizontal)
-                        .padding(.all, 24)
+                if needsScroll {
+                    ScrollView {
+                        contentStack(geometry: geometry)
+                    }
+                    .ignoresSafeArea()
+                } else {
+                    contentStack(geometry: geometry)
                 }
             }
             .onAppear { viewModel.startAnimation() }
         }
     }
 
+    // MARK: - Content
+    func contentStack(geometry: GeometryProxy) -> some View {
+        VStack(spacing: spacing(for: geometry)) {
+            topBar(geometry: geometry)
+            titleSection(geometry: geometry)
+            chartWithRobot(geometry: geometry)
+            bottomTexts(geometry: geometry)
+        }
+        .padding(.horizontal)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .safeAreaInset(edge: .bottom) {
+            registerButton(geometry: geometry)
+                .padding(.horizontal)
+                .padding(.top, geometry.size.height < 650 ? 8 : 12)
+                .padding(.bottom, geometry.size.height < 650 ? 4 : 8)
+        }
+    }
+
     // MARK: - Top Close Button
-    var topBar: some View {
-        HStack {
+    func topBar(geometry: GeometryProxy) -> some View {
+        let minSide = min(geometry.size.width, geometry.size.height)
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+        let buttonSize: CGFloat = isPad ? 20 : (minSide < 375 ? 14 : 16)
+        let topPadding: CGFloat = isPad ? 56 : (minSide < 375 ? 40 : 48)
+
+        return HStack {
             Spacer()
             Button(action: {
                 presentationMode.wrappedValue.dismiss()
             }) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: buttonSize, weight: .bold))
                     .foregroundColor(.black)
                     .padding()
                     .background(Circle().fill(Color.white))
             }
-            .padding(.top, 48)
+            .padding(.top, topPadding)
             .padding(.trailing, 24)
         }
     }
 
     // MARK: - Title Section
-    var titleSection: some View {
-        VStack(spacing: 0) {
+    func titleSection(geometry: GeometryProxy) -> some View {
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+        let minSide = min(geometry.size.width, geometry.size.height)
+        let titleSize: CGFloat = isPad ? 48 : (minSide < 375 ? 28 : 36)
+
+        return VStack(spacing: 0) {
             Text("Hello")
-                .font(.system(size: 36, weight: .bold))
+                .font(.system(size: titleSize, weight: .bold))
             Text("SpeakBUDDY")
-                .font(.system(size: 36, weight: .bold))
+                .font(.system(size: titleSize, weight: .bold))
         }
-        .padding(.top, 24)
     }
 
     // MARK: - Bottom Texts
-    var bottomTexts: some View {
-        VStack(spacing: 10) {
+    func bottomTexts(geometry: GeometryProxy) -> some View {
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+        let minSide = min(geometry.size.width, geometry.size.height)
+        let subTextSize: CGFloat = isPad ? 28 : (minSide < 375 ? 20 : 24)
+        let mainTextSize: CGFloat = isPad ? 36 : (minSide < 375 ? 28 : 32)
+
+        return VStack(spacing: 10) {
             Text("スピークバディで")
-                .font(.system(size: 24))
+                .font(.system(size: subTextSize))
             Text("レベルアップ")
-                .font(.system(size: 32, weight: .bold))
+                .font(.system(size: mainTextSize, weight: .bold))
                 .foregroundColor(.blue)
         }
     }
 
     // MARK: - Register Button
-    var registerButton: some View {
-        Button(action: {
+    func registerButton(geometry: GeometryProxy) -> some View {
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+        let minSide = min(geometry.size.width, geometry.size.height)
+        let fontSize: CGFloat = isPad ? 22 : (minSide < 375 ? 16 : 18)
+
+        return Button(action: {
             viewModel.registerPlan()
         }) {
             Text("プランに登録する")
-                .font(.system(size: 18, weight: .bold))
+                .font(.system(size: fontSize, weight: .bold))
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 56)
@@ -118,7 +142,13 @@ struct WelcomeView: View {
         }()
 
         let chartWidth: CGFloat = device == .pad ? geometry.size.width * 0.5 : geometry.size.width * 0.65
-        let chartHeight: CGFloat = isLandscape ? geometry.size.height * 0.4 : geometry.size.height * 0.5
+        let chartHeight: CGFloat = {
+            if device == .pad {
+                return isLandscape ? geometry.size.height * 0.4 : geometry.size.height * 0.5
+            } else {
+                return isLandscape ? geometry.size.height * 0.45 : geometry.size.height * 0.35
+            }
+        }()
         let offsetY: CGFloat = device == .pad ? -chartHeight * 0.25 : -chartHeight * 0.2
 
         return ZStack {
